@@ -79,7 +79,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           #command: deploy
-          command: pages deploy public --project-name=hello-cicd --branch=main
+          command: pages deploy public --project-name=hello-world-cicd --branch=main
           
       - name: Show Deployment URL
         run: echo "${{ steps.deploy.outputs.deployment-url }}"
