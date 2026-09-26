@@ -1,0 +1,16 @@
+{
+  "name": "hello-cicd",
+  "version": "1.0.0",
+  "description": "Simple end-to-end CI/CD demo using GitHub Actions and Cloudflare Workers",
+  "private": true,
+  "scripts": {
+    "test:html": "htmlhint public/index.html",
+    "test": "npm run test:html",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "htmlhint": "^1.9.2",
+    "wrangler": "^4.0.0"
+  }
+}
