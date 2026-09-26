@@ -1,111 +1,334 @@
-# Hello CI/CD
+# Hello CI/CD Starter Demo
 
-A minimal end-to-end CI/CD demo using:
-
-- Source Code
-- Git / GitHub
-- GitHub Actions
-- Automated CI checks
-- Cloudflare Workers Static Assets
+A simple end-to-end CI/CD demonstration using **GitHub Actions** to validate source code, run automated checks, and deploy a static website to **Cloudflare Pages**.
 
 ## Table of Contents
 
-- [Project Structure](#project-structure)
-- [CI Checks](#ci-checks)
-- [First-time Setup](#first-time-setup)
-- [Git Setup](#git-setup)
-- [GitHub Repository Secrets](#github-repository-secrets)
-- [CI Failure Demo](#ci-failure-demo)
-- [Optional Hardening](#optional-hardening-after-package-lockjson-exists)
+- [Architecture](https://github.com/ang-jason/hello-cicd-starter-demo#architecture)
+- [GitHub Actions](https://github.com/ang-jason/hello-cicd-starter-demo#github-actions)
+- [Project Structure](https://github.com/ang-jason/hello-cicd-starter-demo#project-structure)
+- [CI Checks](https://github.com/ang-jason/hello-cicd-starter-demo#ci-checks)
+- [First-time Setup](https://github.com/ang-jason/hello-cicd-starter-demo#first-time-setup)
+- [Git Setup](https://github.com/ang-jason/hello-cicd-starter-demo#git-setup)
+- [GitHub Repository Secrets](https://github.com/ang-jason/hello-cicd-starter-demo#github-repository-secrets)
+- [CI Pipeline](https://github.com/ang-jason/hello-cicd-starter-demo#ci-pipeline)
+- [CI Failure Demo](https://github.com/ang-jason/hello-cicd-starter-demo#ci-failure-demo)
+- [Optional Hardening](https://github.com/ang-jason/hello-cicd-starter-demo#optional-hardening-after-package-lockjson-exists)
+- [Cloudflare Pages vs Workers](https://github.com/ang-jason/hello-cicd-starter-demo#cloudflare-pages-vs-workers)
+- [Deployment URLs](https://github.com/ang-jason/hello-cicd-starter-demo#deployment-urls)
+- [Summary](https://github.com/ang-jason/hello-cicd-starter-demo#summary)
 
 ---
 
-## Project structure
+## Architecture
 
 ```text
-hello-cicd/
+Developer
+    │
+    │ git push / pull request
+    ▼
+GitHub Repository
+    │
+    ▼
+GitHub Actions
+    │
+    ├── CI
+    │    ├── Checkout Source Code
+    │    ├── Install Dependencies
+    │    ├── Check Source Files
+    │    ├── Test 5 + 4 = 9
+    │    └── Validate Source Code
+    │
+    └── CD
+         └── Deploy to Cloudflare Pages
+                    │
+                    ▼
+             Production Website
+```
+
+### Pipeline behaviour
+
+| Event | CI | Production Deployment |
+|---|---:|---:|
+| Pull Request to `main` | ✅ | ❌ |
+| Push to `main` | ✅ | ✅ |
+| Merge to `main` | ✅ | ✅ |
+| CI failure | ❌ | ❌ |
+
+---
+
+## GitHub Actions
+
+**GitHub Actions is GitHub's built-in automation platform for creating workflows that automatically build, test, and deploy code based on repository events such as pushes and pull requests.**
+
+The workflow is stored at:
+
+```text
+.github/workflows/cicd.yml
+```
+
+Main concepts:
+
+| Concept | Description |
+|---|---|
+| Workflow | The complete automation pipeline |
+| Trigger | Event that starts the workflow, such as `push` or `pull_request` |
+| Job | A group of related tasks, such as `test` or `deploy` |
+| Step | One individual task inside a job |
+| Runner | The machine that executes the workflow |
+| Action | A reusable automation component |
+
+---
+
+## Project Structure
+
+```text
+hello-cicd-starter-demo/
 ├── .github/
 │   └── workflows/
 │       └── cicd.yml
 ├── public/
 │   └── index.html
-├── .env.example
 ├── .gitignore
 ├── .htmlhintrc
 ├── package.json
-└── wrangler.jsonc
+├── package-lock.json
+├── wrangler.toml
+└── README.md
 ```
 
-## CI checks
+The project now uses **Cloudflare Pages**.
 
-The GitHub Actions pipeline runs:
+`wrangler.toml` contains the Pages configuration:
 
-1. Check that `public/index.html` exists.
-2. Run the pipeline calculation test: `5 + 4 = 9`.
-3. Validate the source code with HTMLHint.
-4. Deploy only when CI passes and the change is pushed or merged to `main`.
+```toml
+name = "hello-cicd"
+pages_build_output_dir = "./public"
+compatibility_date = "2026-09-26"
+```
 
-## First-time setup
+---
 
-Install dependencies:
+## CI Checks
+
+The GitHub Actions CI job runs three simple checks.
+
+### 1. Check Source Files
+
+```yaml
+- name: Check Source Files
+  run: |
+    echo "Checking public/index.html..."
+
+    if [ ! -f "public/index.html" ]; then
+      echo "❌ Required source file public/index.html does not exist"
+      exit 1
+    fi
+
+    echo "✅ Required source file exists"
+```
+
+### 2. Test 5 + 4
+
+The calculation test is deliberately defined directly in the CI pipeline.
+
+```yaml
+- name: Test 5 + 4
+  run: |
+    RESULT=$((5 + 4))
+
+    echo "Testing: 5 + 4 = $RESULT"
+
+    if [ "$RESULT" -ne 9 ]; then
+      echo "❌ Calculation test failed"
+      exit 1
+    fi
+
+    echo "✅ Calculation test passed"
+```
+
+### 3. Validate Source Code
+
+```yaml
+- name: Validate Source Code
+  run: npm run test:html
+```
+
+If any check fails:
+
+```text
+CI FAILED
+    ↓
+Deployment blocked
+```
+
+---
+
+## First-time Setup
+
+Install the project dependencies:
 
 ```bash
 npm install
 ```
 
-This will generate the real `package-lock.json`. Commit it after it is created:
+This creates or updates:
 
-```bash
-git add package-lock.json
-git commit -m "Add dependency lockfile"
+```text
+package-lock.json
 ```
 
-Run local validation:
+Run validation locally:
 
 ```bash
 npm test
 ```
 
-Run locally:
+Run the Cloudflare Pages project locally:
 
 ```bash
-npm run dev
+npx wrangler pages dev
 ```
 
-## Git setup
+Because `wrangler.toml` contains:
+
+```toml
+pages_build_output_dir = "./public"
+```
+
+Wrangler knows which directory to serve.
+
+---
+
+## Git Setup
+
+Initialise Git:
 
 ```bash
 git init
 git branch -M main
+```
+
+Add and commit the project:
+
+```bash
 git add .
 git commit -m "Initial CI/CD project"
 ```
 
-Create a GitHub repository, then:
+Add the GitHub remote:
 
 ```bash
-git remote add origin https://github.com/YOUR_USERNAME/hello-cicd.git
+git remote add origin https://github.com/ang-jason/hello-cicd-starter-demo.git
+```
+
+Push:
+
+```bash
 git push -u origin main
 ```
 
-## GitHub repository secrets
+---
 
-Configure these under:
+## GitHub Repository Secrets
 
-`Settings > Secrets and variables > Actions`
-
-Required secrets:
+Create these repository secrets:
 
 ```text
-CLOUDFLARE_ACCOUNT_ID
 CLOUDFLARE_API_TOKEN
+CLOUDFLARE_ACCOUNT_ID
 ```
 
-Do not commit the real values into the repository.
+Location:
 
-## CI failure demo
+```text
+GitHub Repository
+→ Settings
+→ Secrets and variables
+→ Actions
+→ Repository secrets
+```
 
-In `.github/workflows/cicd.yml`, temporarily change:
+For the Cloudflare API token, use:
+
+```text
+Account
+→ Cloudflare Pages
+→ Edit
+```
+
+Restrict the token to the Cloudflare account used by this deployment.
+
+---
+
+## CI Pipeline
+
+The workflow triggers on both Pull Requests and pushes to `main`:
+
+```yaml
+on:
+  pull_request:
+    branches:
+      - main
+
+  push:
+    branches:
+      - main
+```
+
+The CI job:
+
+```text
+Checkout Source Code
+        ↓
+Setup Node.js
+        ↓
+Install Dependencies
+        ↓
+Check Source Files
+        ↓
+Test 5 + 4 = 9
+        ↓
+Validate Source Code
+        ↓
+CI Passed
+```
+
+The deployment job runs only after CI succeeds:
+
+```yaml
+needs:
+  - test
+```
+
+and only for a push to `main`:
+
+```yaml
+if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+```
+
+The Pages deployment step is:
+
+```yaml
+- name: Deploy to Cloudflare Pages
+  uses: cloudflare/wrangler-action@v4
+  with:
+    apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    command: pages deploy
+```
+
+Because the Pages project name and output directory are defined in `wrangler.toml`, the command can remain simple:
+
+```bash
+wrangler pages deploy
+```
+
+---
+
+## CI Failure Demo
+
+To demonstrate how CI protects production, temporarily change:
 
 ```bash
 if [ "$RESULT" -ne 9 ]; then
@@ -117,14 +340,39 @@ to:
 if [ "$RESULT" -ne 10 ]; then
 ```
 
-The CI job will fail and the deployment job will be blocked.
+The pipeline calculates:
 
-Change it back to `9` to restore the successful pipeline.
+```text
+5 + 4 = 9
+```
 
+but now expects `10`.
 
-## Optional hardening after package-lock.json exists
+The result:
 
-Once `package-lock.json` has been generated and committed, you can change the CI dependency step from:
+```text
+Source Code Push
+       ↓
+CI
+       ↓
+✅ Source File Check
+       ↓
+❌ Calculation Test
+       ↓
+CI FAILED
+       ↓
+Deployment BLOCKED
+```
+
+Change the value back to `9` and push again to restore the successful pipeline.
+
+---
+
+## Optional Hardening After package-lock.json Exists
+
+Once `package-lock.json` is committed, use deterministic dependency installation in CI.
+
+Change:
 
 ```yaml
 - name: Install Dependencies
@@ -138,4 +386,153 @@ to:
   run: npm ci
 ```
 
-`npm ci` is preferred for reproducible CI builds when a valid lockfile is committed.
+You can also enable npm caching:
+
+```yaml
+- name: Setup Node.js
+  uses: actions/setup-node@v7
+  with:
+    node-version: 24
+    cache: npm
+```
+
+This works because the repository now contains the lock file that `setup-node` expects for npm caching.
+
+---
+
+## Cloudflare Pages vs Workers
+
+### Cloudflare Pages
+
+**Cloudflare Pages is a platform for deploying and hosting static or frontend websites.**
+
+Typical uses:
+
+```text
+HTML
+CSS
+JavaScript
+Static framework builds
+```
+
+Pages is appropriate when the main requirement is simply:
+
+> **Host the website.**
+
+### Cloudflare Workers
+
+**Cloudflare Workers is a serverless compute platform that runs application logic at Cloudflare's edge.**
+
+Typical uses:
+
+```text
+APIs
+Authentication
+Backend logic
+Request routing
+Scheduled processing
+Full-stack applications
+```
+
+Workers is appropriate when the requirement is:
+
+> **Run application or backend logic.**
+
+### Comparison
+
+| Cloudflare Pages | Cloudflare Workers |
+|---|---|
+| Static/frontend focused | Serverless compute focused |
+| Simple website hosting | APIs and backend logic |
+| Supports Pages Functions | Worker logic is native |
+| Uses `pages.dev` | Uses `workers.dev` |
+| Best fit for this demo | Better when backend logic is required |
+
+This repository uses **Cloudflare Pages** because it is a simple static-site CI/CD demonstration.
+
+---
+
+## Deployment URLs
+
+### Cloudflare Pages
+
+Pages projects use:
+
+```text
+https://<project-name>.pages.dev
+```
+
+For this project:
+
+```text
+https://hello-cicd.pages.dev
+```
+
+The exact URL depends on the final Pages project name.
+
+### Cloudflare Workers
+
+Workers normally use:
+
+```text
+https://<worker-name>.<account-subdomain>.workers.dev
+```
+
+Example:
+
+```text
+https://hello-cicd.<account-subdomain>.workers.dev
+```
+
+Both Pages and Workers can also be mapped to custom domains.
+
+---
+
+## Summary
+
+The complete CI/CD workflow is:
+
+```text
+Source Code
+    ↓
+GitHub
+    ↓
+GitHub Actions
+    ↓
+CI
+    ├── Check Source Files
+    ├── Test 5 + 4 = 9
+    └── Validate Source Code
+    ↓
+Quality Gate
+    ↓
+Cloudflare Pages
+    ↓
+Production Website
+```
+
+For Pull Requests:
+
+```text
+Pull Request
+     ↓
+CI Tests
+     ↓
+PASS
+     ↓
+No Production Deployment
+```
+
+For `main`:
+
+```text
+Push / Merge to main
+     ↓
+CI Tests
+     ↓
+PASS
+     ↓
+Cloudflare Pages
+     ↓
+https://hello-cicd.pages.dev
+```
